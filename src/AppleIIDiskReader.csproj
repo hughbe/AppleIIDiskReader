@@ -9,7 +9,7 @@
 
     <!-- NuGet package metadata -->
     <PackageId>AppleIIDiskReader</PackageId>
-    <Version>0.1.0</Version>
+    <Version>1.0.0</Version>
     <Authors>Hugh Bellamy</Authors>
     <Description>A lightweight .NET library for reading Apple II DOS 3.3 floppy disk images (.dsk, .do). Supports reading the Volume Table of Contents (VTOC), catalog entries, and extracting files from 140KB 5.25" disk images.</Description>
     <PackageTags>apple-ii;dos-3.3;floppy-disk;disk-image;retro-computing;binary-parsing</PackageTags>
