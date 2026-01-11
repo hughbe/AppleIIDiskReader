@@ -1,0 +1,32 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+    <!-- NuGet package metadata -->
+    <PackageId>AppleIIDiskReader</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>Hugh Bellamy</Authors>
+    <Description>A lightweight .NET library for reading Apple II DOS 3.3 floppy disk images (.dsk, .do). Supports reading the Volume Table of Contents (VTOC), catalog entries, and extracting files from 140KB 5.25" disk images.</Description>
+    <PackageTags>apple-ii;dos-3.3;floppy-disk;disk-image;retro-computing;binary-parsing</PackageTags>
+    <RepositoryType>git</RepositoryType>
+    <RepositoryUrl>https://github.com/hughbe/AppleIIDiskReader</RepositoryUrl>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <PackageProjectUrl>https://github.com/hughbe/AppleIIDiskReader</PackageProjectUrl>
+    <Copyright>Hugh Bellamy 2026</Copyright>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="../README.md" Pack="true" PackagePath="/"/>
+  </ItemGroup>
+
+</Project>
