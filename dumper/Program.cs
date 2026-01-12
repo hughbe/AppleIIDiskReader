@@ -71,19 +71,38 @@ sealed class ExtractCommand : AsyncCommand<ExtractSettings>
 
             var filePath = Path.Combine(outputDir.FullName, safeName + extension);
 
-            // For text files, convert from Apple II high ASCII
-            if (entry.FileType == AppleIIFileType.Text)
+            switch (entry.FileType)
             {
-                var text = disk.ReadTextFile(entry);
-                await File.WriteAllTextAsync(filePath, text, cancellationToken);
-                AnsiConsole.MarkupLine($"Wrote: {Path.GetFileName(filePath)} ({text.Length} chars) [Text]");
-            }
-            else
-            {
-                var data = disk.ReadFileData(entry);
-                await File.WriteAllBytesAsync(filePath, data, cancellationToken);
-                var lockedStr = entry.IsLocked ? " [Locked]" : "";
-                AnsiConsole.MarkupLine($"Wrote: {Path.GetFileName(filePath)} ({data.Length} bytes) [{entry.FileType}]{lockedStr}");
+                case AppleIIFileType.Text:
+                    // For text files, convert from Apple II high ASCII.
+                    var text = disk.ReadTextFile(entry);
+                    await File.WriteAllTextAsync(filePath, text.Value, cancellationToken);
+                    AnsiConsole.MarkupLine($"Wrote: {Path.GetFileName(filePath)} ({text.Value.Length} chars) [Text]");
+                    break;
+                case AppleIIFileType.Binary:
+                    // For binary files, extract the binary data.
+                    var binaryData = disk.ReadBinaryFile(entry);
+                    await File.WriteAllBytesAsync(filePath, binaryData.Data, cancellationToken);
+                    break;
+                case AppleIIFileType.ApplesoftBasic:
+                    // For Applesoft BASIC files, extract the BASIC data.
+                    var basicData = disk.ReadApplesoftBasicFile(entry);
+                    await File.WriteAllBytesAsync(filePath, basicData.Data, cancellationToken);
+                    AnsiConsole.MarkupLine($"Wrote: {Path.GetFileName(filePath)} ({basicData.Data.Length} bytes) [Applesoft BASIC]");
+                    break;
+                case AppleIIFileType.IntegerBasic:
+                    // For Integer BASIC files, extract the BASIC data.
+                    var intBasicData = disk.ReadIntegerBasicFile(entry);
+                    await File.WriteAllBytesAsync(filePath, intBasicData.Data, cancellationToken);
+                    AnsiConsole.MarkupLine($"Wrote: {Path.GetFileName(filePath)} ({intBasicData.Data.Length} bytes) [Integer BASIC]");
+                    break;
+                default:
+                    // For other file types, just extract the raw data.
+                    var data = disk.ReadFileData(entry);
+                    await File.WriteAllBytesAsync(filePath, data, cancellationToken);
+                    var lockedStr = entry.IsLocked ? " [Locked]" : "";
+                    AnsiConsole.MarkupLine($"Wrote: {Path.GetFileName(filePath)} ({data.Length} bytes) [{entry.FileType}]{lockedStr}");
+                    break;
             }
         }
 

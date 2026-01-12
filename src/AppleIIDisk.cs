@@ -1,3 +1,4 @@
+using AppleIIDiskReader.Files;
 using AppleIIDiskReader.Utilities;
 
 namespace AppleIIDiskReader;
@@ -186,10 +187,65 @@ public class AppleIIDisk : FloppyDisk
     /// </summary>
     /// <param name="fileEntry">The file descriptive entry.</param>
     /// <returns>The text content of the file.</returns>
-    public string ReadTextFile(FileDescriptiveEntry fileEntry)
+    public TextFile ReadTextFile(FileDescriptiveEntry fileEntry)
     {
+        if (fileEntry.FileType != AppleIIFileType.Text)
+        {
+            throw new ArgumentException("The specified file entry is not a text file.", nameof(fileEntry));
+        }
+
         byte[] data = ReadFileData(fileEntry);
-        return AppleIIEncoding.GetString(data);
+        return new TextFile(data);
+    }
+
+    /// <summary>
+    /// Reads a binary file from the disk.
+    /// </summary>
+    /// <param name="fileEntry">The file descriptive entry.</param>
+    /// <returns>>The <see cref="BinaryFile"/> object representing the binary file.</returns>
+    public BinaryFile ReadBinaryFile(FileDescriptiveEntry fileEntry)
+    {
+        if (fileEntry.FileType != AppleIIFileType.Binary)
+        {
+            throw new ArgumentException("The specified file entry is not a binary file.", nameof(fileEntry));
+        }
+
+        byte[] data = ReadFileData(fileEntry);
+        return new BinaryFile(data);
+    }
+
+    /// <summary>
+    /// Reads an Applesoft BASIC file from the disk.
+    /// </summary>
+    /// <param name="fileEntry">The file descriptive entry.</param>
+    /// <returns>>The <see cref="ApplesoftBasicFile"/> object representing the Applesoft BASIC file.</returns>
+    /// <exception cref="ArgumentException">Thrown when the specified file entry is not an Applesoft BASIC file.</exception>
+    public ApplesoftBasicFile ReadApplesoftBasicFile(FileDescriptiveEntry fileEntry)
+    {
+        if (fileEntry.FileType != AppleIIFileType.ApplesoftBasic)
+        {
+            throw new ArgumentException("The specified file entry is not an Applesoft BASIC file.", nameof(fileEntry));
+        }
+
+        byte[] data = ReadFileData(fileEntry);
+        return new ApplesoftBasicFile(data);
+    }
+
+    /// <summary>
+    /// Reads an Integer BASIC file from the disk.
+    /// </summary>
+    /// <param name="fileEntry">The file descriptive entry.</param>
+    /// <returns>>The <see cref="IntegerBasicFile"/> object representing the Integer BASIC file.</returns>
+    /// <exception cref="ArgumentException">>Thrown when the specified file entry is not an Integer BASIC file.</exception>
+    public IntegerBasicFile ReadIntegerBasicFile(FileDescriptiveEntry fileEntry)
+    {
+        if (fileEntry.FileType != AppleIIFileType.IntegerBasic)
+        {
+            throw new ArgumentException("The specified file entry is not an Integer BASIC file.", nameof(fileEntry));
+        }
+
+        byte[] data = ReadFileData(fileEntry);
+        return new IntegerBasicFile(data);
     }
 
     /// <summary>

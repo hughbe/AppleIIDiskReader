@@ -368,6 +368,13 @@ public class AppleIIDiskTests
         // Create output directory based on disk name (without extension)
         string diskNameWithoutExtension = Path.GetFileNameWithoutExtension(diskName);
         string outputDir = Path.Combine("Output", diskNameWithoutExtension);
+
+        // Delete the output directory if it exists
+        if (Directory.Exists(outputDir))
+        {
+            Directory.Delete(outputDir, true);
+        }
+
         Directory.CreateDirectory(outputDir);
 
         foreach (var fileEntry in image.EnumerateFileEntries())
@@ -396,20 +403,217 @@ public class AppleIIDiskTests
 
             string outputPath = Path.Combine(outputDir, safeFileName + extension);
 
-            // For text files, convert from Apple II high ASCII to standard ASCII
-            if (fileEntry.FileType == AppleIIFileType.Text)
+            switch (fileEntry.FileType)
             {
-                string text = image.ReadTextFile(fileEntry);
-                File.WriteAllText(outputPath, text);
-                Debug.WriteLine($"  Wrote text file ({text.Length} chars) to {outputPath}");
-            }
-            else
-            {
-                byte[] data = image.ReadFileData(fileEntry);
-                File.WriteAllBytes(outputPath, data);
-                Debug.WriteLine($"  Wrote {data.Length} bytes to {outputPath}");
+                case AppleIIFileType.Text:
+                    // For text files, convert from Apple II high ASCII.
+                    var text = image.ReadTextFile(fileEntry);
+                    File.WriteAllText(outputPath, text.Value);
+                    Debug.WriteLine($"  Wrote text file ({text.Value.Length} chars) to {outputPath}");
+                    break;
+                case AppleIIFileType.Binary:
+                    // For binary files, extract the binary data.
+                    var binaryData = image.ReadBinaryFile(fileEntry);
+                    File.WriteAllBytes(outputPath, binaryData.Data);
+                    Debug.WriteLine($"  Wrote binary file ({binaryData.Data.Length} bytes) to {outputPath}");
+                    break;
+                case AppleIIFileType.ApplesoftBasic:
+                    // For Applesoft BASIC files, extract the BASIC data.
+                    var basicData = image.ReadApplesoftBasicFile(fileEntry);
+                    File.WriteAllBytes(outputPath, basicData.Data);
+                    Debug.WriteLine($"  Wrote Applesoft BASIC file ({basicData.Data.Length} bytes) to {outputPath}");
+                    break;
+                case AppleIIFileType.IntegerBasic:
+                    // For Integer BASIC files, extract the BASIC data.
+                    var intBasicData = image.ReadIntegerBasicFile(fileEntry);
+                    File.WriteAllBytes(outputPath, intBasicData.Data);
+                    Debug.WriteLine($"  Wrote Integer BASIC file ({intBasicData.Data.Length} bytes) to {outputPath}");
+                    break;
+                default:
+                    // For other file types, just extract the raw data.
+                    var data = image.ReadFileData(fileEntry);
+                    File.WriteAllBytes(outputPath, data);
+                    Debug.WriteLine($"  Wrote {data.Length} bytes to {outputPath}");
+                    break;
             }
         }
+    }
+
+    [Fact]
+    public void AppleIIDos_HasExpectedVolumeTableOfContents()
+    {
+        using var stream = File.OpenRead(Path.Combine("Samples", "appleIIDos.dsk"));
+        var disk = new AppleIIDisk(stream);
+
+        Assert.Equal(254, disk.VolumeTableOfContents.DiskVolumeNumber);
+        Assert.Equal(17, disk.VolumeTableOfContents.FirstCatalogTrack);
+        Assert.Equal(15, disk.VolumeTableOfContents.FirstCatalogSector);
+        Assert.Equal(35, disk.VolumeTableOfContents.TracksPerDiskette);
+        Assert.Equal(16, disk.VolumeTableOfContents.SectorsPerTrack);
+        Assert.Equal(256, disk.VolumeTableOfContents.BytesPerSector);
+    }
+
+    [Fact]
+    public void AppleIIDos_HasExpectedFileCount()
+    {
+        using var stream = File.OpenRead(Path.Combine("Samples", "appleIIDos.dsk"));
+        var disk = new AppleIIDisk(stream);
+
+        var files = disk.EnumerateFileEntries().ToList();
+        Assert.Equal(27, files.Count);
+    }
+
+    [Fact]
+    public void AppleIIDos_HasExpectedFiles()
+    {
+        using var stream = File.OpenRead(Path.Combine("Samples", "appleIIDos.dsk"));
+        var disk = new AppleIIDisk(stream);
+
+        var files = disk.EnumerateFileEntries().ToList();
+
+        // Verify some key files exist with expected types
+        var hello = files.Single(f => f.FileName == "HELLO");
+        Assert.Equal(AppleIIFileType.ApplesoftBasic, hello.FileType);
+        Assert.True(hello.IsLocked);
+
+        var animals = files.Single(f => f.FileName == "ANIMALS");
+        Assert.Equal(AppleIIFileType.IntegerBasic, animals.FileType);
+        Assert.True(animals.IsLocked);
+
+        var fpbasic = files.Single(f => f.FileName == "FPBASIC");
+        Assert.Equal(AppleIIFileType.Binary, fpbasic.FileType);
+        Assert.True(fpbasic.IsLocked);
+
+        var appleProms = files.Single(f => f.FileName == "APPLE PROMS");
+        Assert.Equal(AppleIIFileType.Text, appleProms.FileType);
+        Assert.True(appleProms.IsLocked);
+    }
+
+    [Fact]
+    public void AppleIIDos_ReadTextFile_ReturnsExpectedContent()
+    {
+        using var stream = File.OpenRead(Path.Combine("Samples", "appleIIDos.dsk"));
+        var disk = new AppleIIDisk(stream);
+
+        var appleProms = disk.EnumerateFileEntries().Single(f => f.FileName == "APPLE PROMS");
+        var textFile = disk.ReadTextFile(appleProms);
+
+        Assert.Equal(38, textFile.Value.TrimEnd('\0').Length);
+    }
+
+    [Fact]
+    public void AppleIIDos_ReadBinaryFile_ReturnsExpectedData()
+    {
+        using var stream = File.OpenRead(Path.Combine("Samples", "appleIIDos.dsk"));
+        var disk = new AppleIIDisk(stream);
+
+        var fpbasic = disk.EnumerateFileEntries().Single(f => f.FileName == "FPBASIC");
+        var binaryFile = disk.ReadBinaryFile(fpbasic);
+
+        Assert.Equal(12288, binaryFile.Data.Length);
+        Assert.Equal(0xD000, binaryFile.Address); // FPBASIC typically loads at $D000
+    }
+
+    [Fact]
+    public void AppleIIDos_ReadApplesoftBasicFile_ReturnsExpectedData()
+    {
+        using var stream = File.OpenRead(Path.Combine("Samples", "appleIIDos.dsk"));
+        var disk = new AppleIIDisk(stream);
+
+        var hello = disk.EnumerateFileEntries().Single(f => f.FileName == "HELLO");
+        var basicFile = disk.ReadApplesoftBasicFile(hello);
+
+        Assert.Equal(1137, basicFile.Data.Length);
+    }
+
+    [Fact]
+    public void AppleIIDos_ReadIntegerBasicFile_ReturnsExpectedData()
+    {
+        using var stream = File.OpenRead(Path.Combine("Samples", "appleIIDos.dsk"));
+        var disk = new AppleIIDisk(stream);
+
+        var animals = disk.EnumerateFileEntries().Single(f => f.FileName == "ANIMALS");
+        var basicFile = disk.ReadIntegerBasicFile(animals);
+
+        Assert.Equal(4205, basicFile.Data.Length);
+    }
+
+    [Fact]
+    public void ReadTextFile_WithBinaryFile_ThrowsArgumentException()
+    {
+        using var stream = File.OpenRead(Path.Combine("Samples", "appleIIDos.dsk"));
+        var disk = new AppleIIDisk(stream);
+
+        var fpbasic = disk.EnumerateFileEntries().Single(f => f.FileName == "FPBASIC");
+        Assert.Equal(AppleIIFileType.Binary, fpbasic.FileType);
+
+        var ex = Assert.Throws<ArgumentException>("fileEntry", () => disk.ReadTextFile(fpbasic));
+        Assert.Contains("not a text file", ex.Message);
+    }
+
+    [Fact]
+    public void ReadBinaryFile_WithTextFile_ThrowsArgumentException()
+    {
+        using var stream = File.OpenRead(Path.Combine("Samples", "appleIIDos.dsk"));
+        var disk = new AppleIIDisk(stream);
+
+        var appleProms = disk.EnumerateFileEntries().Single(f => f.FileName == "APPLE PROMS");
+        Assert.Equal(AppleIIFileType.Text, appleProms.FileType);
+
+        var ex = Assert.Throws<ArgumentException>("fileEntry", () => disk.ReadBinaryFile(appleProms));
+        Assert.Contains("not a binary file", ex.Message);
+    }
+
+    [Fact]
+    public void ReadApplesoftBasicFile_WithIntegerBasicFile_ThrowsArgumentException()
+    {
+        using var stream = File.OpenRead(Path.Combine("Samples", "appleIIDos.dsk"));
+        var disk = new AppleIIDisk(stream);
+
+        var animals = disk.EnumerateFileEntries().Single(f => f.FileName == "ANIMALS");
+        Assert.Equal(AppleIIFileType.IntegerBasic, animals.FileType);
+
+        var ex = Assert.Throws<ArgumentException>("fileEntry", () => disk.ReadApplesoftBasicFile(animals));
+        Assert.Contains("not an Applesoft BASIC file", ex.Message);
+    }
+
+    [Fact]
+    public void ReadIntegerBasicFile_WithApplesoftBasicFile_ThrowsArgumentException()
+    {
+        using var stream = File.OpenRead(Path.Combine("Samples", "appleIIDos.dsk"));
+        var disk = new AppleIIDisk(stream);
+
+        var hello = disk.EnumerateFileEntries().Single(f => f.FileName == "HELLO");
+        Assert.Equal(AppleIIFileType.ApplesoftBasic, hello.FileType);
+
+        var ex = Assert.Throws<ArgumentException>("fileEntry", () => disk.ReadIntegerBasicFile(hello));
+        Assert.Contains("not an Integer BASIC file", ex.Message);
+    }
+
+    [Fact]
+    public void ReadBinaryFile_WithApplesoftBasicFile_ThrowsArgumentException()
+    {
+        using var stream = File.OpenRead(Path.Combine("Samples", "appleIIDos.dsk"));
+        var disk = new AppleIIDisk(stream);
+
+        var hello = disk.EnumerateFileEntries().Single(f => f.FileName == "HELLO");
+        Assert.Equal(AppleIIFileType.ApplesoftBasic, hello.FileType);
+
+        var ex = Assert.Throws<ArgumentException>("fileEntry", () => disk.ReadBinaryFile(hello));
+        Assert.Contains("not a binary file", ex.Message);
+    }
+
+    [Fact]
+    public void ReadTextFile_WithApplesoftBasicFile_ThrowsArgumentException()
+    {
+        using var stream = File.OpenRead(Path.Combine("Samples", "appleIIDos.dsk"));
+        var disk = new AppleIIDisk(stream);
+
+        var hello = disk.EnumerateFileEntries().Single(f => f.FileName == "HELLO");
+        Assert.Equal(AppleIIFileType.ApplesoftBasic, hello.FileType);
+
+        var ex = Assert.Throws<ArgumentException>("fileEntry", () => disk.ReadTextFile(hello));
+        Assert.Contains("not a text file", ex.Message);
     }
 
     [Fact]

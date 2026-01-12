@@ -1,3 +1,6 @@
+using System.Diagnostics;
+using AppleIIDiskReader.Utilities;
+
 namespace AppleIIDiskReader;
 
 /// <summary>
@@ -35,13 +38,13 @@ public readonly struct CatalogEntry
     /// <summary>
     /// Offset $03-0A: Not used (8 bytes).
     /// </summary>
-    public byte[] Unused2 { get; }
+    public ByteArray8 Unused2 { get; }
 
     /// <summary>
     /// The file descriptive entries in this catalog sector.
     /// There are up to 7 entries per sector, starting at offset $0B.
     /// </summary>
-    public FileDescriptiveEntry[] FileEntries { get; }
+    public FileDescriptiveEntriesArray FileEntries { get; }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="CatalogEntry"/> struct.
@@ -70,7 +73,7 @@ public readonly struct CatalogEntry
         offset += 1;
 
         // $03-0A: Not used (8 bytes)
-        Unused2 = data.Slice(offset, 8).ToArray();
+        Unused2 = new ByteArray8(data.Slice(offset, 8));
         offset += 8;
 
         // $0B-FF: Seven file descriptive entries
@@ -82,12 +85,16 @@ public readonly struct CatalogEntry
         // $97-B9: Fifth entry
         // $BA-DC: Sixth entry
         // $DD-FF: Seventh entry
-        FileEntries = new FileDescriptiveEntry[FileEntriesPerSector];
+        var fileEntries = new FileDescriptiveEntriesArray();
         for (int i = 0; i < FileEntriesPerSector; i++)
         {
-            FileEntries[i] = new FileDescriptiveEntry(data.Slice(offset, FileDescriptiveEntry.Size));
+            fileEntries[i] = new FileDescriptiveEntry(data.Slice(offset, FileDescriptiveEntry.Size));
             offset += FileDescriptiveEntry.Size;
         }
+
+        FileEntries = fileEntries;
+
+        Debug.Assert(offset == data.Length, "Did not consume all data bytes.");
     }
 
     /// <summary>

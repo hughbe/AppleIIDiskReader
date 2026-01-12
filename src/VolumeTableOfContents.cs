@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using System.Diagnostics;
+using AppleIIDiskReader.Utilities;
 
 namespace AppleIIDiskReader;
 
@@ -48,7 +49,7 @@ public readonly struct VolumeTableOfContents
     /// <summary>
     /// Offset $07-26: Not used.
     /// </summary>
-    public byte[] Unused3 { get; }
+    public ByteArray32 Unused3 { get; }
 
     /// <summary>
     /// Offset $27: Maximum number of track/sector pairs which will fit in one file
@@ -59,7 +60,7 @@ public readonly struct VolumeTableOfContents
     /// <summary>
     /// Offset $28-2F: Not used.
     /// </summary>
-    public byte[] Unused4 { get; }
+    public ByteArray8 Unused4 { get; }
 
     /// <summary>
     /// Offset $30: Last track where sectors were allocated.
@@ -95,7 +96,7 @@ public readonly struct VolumeTableOfContents
     /// Offset $38-FF: Bit maps of free sectors for each track.
     /// Each track uses 4 bytes. Starting at $38 for track 0, $3C for track 1, etc.
     /// </summary>
-    public byte[] FreeSectorBitMaps { get; }
+    public VtocBitMap FreeSectorBitMaps { get; }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="VolumeTableOfContents"/> struct.
@@ -137,7 +138,7 @@ public readonly struct VolumeTableOfContents
         offset += 1;
 
         // $07-26: not used (32 bytes: 0x07 to 0x26 inclusive)
-        Unused3 = data.Slice(offset, 0x20).ToArray();
+        Unused3 = new ByteArray32(data.Slice(offset, 0x20));
         offset += 0x20;
 
         // $27: maximum number of track/sector pairs which will fit in
@@ -146,7 +147,7 @@ public readonly struct VolumeTableOfContents
         offset += 1;
 
         // $28-2F: not used (8 bytes)
-        Unused4 = data.Slice(offset, 8).ToArray();
+        Unused4 = new ByteArray8(data.Slice(offset, 8));
         offset += 8;
 
         // $30: last track where sectors were allocated
@@ -175,8 +176,8 @@ public readonly struct VolumeTableOfContents
 
         // $38-FF: bit maps of free sectors for each track
         // Each track uses 4 bytes. Remaining bytes from offset $38 to end of sector.
-        FreeSectorBitMaps = data[offset..].ToArray();
-        offset += FreeSectorBitMaps.Length;
+        FreeSectorBitMaps = new VtocBitMap(data.Slice(offset, VtocBitMap.Size));
+        offset += VtocBitMap.Size;
 
         Debug.Assert(offset == data.Length, "Did not consume all data for VTOC structure.");
     }
@@ -186,21 +187,8 @@ public readonly struct VolumeTableOfContents
     /// </summary>
     /// <param name="track">The track number (0-based).</param>
     /// <returns>A 4-byte array representing the free sector bitmap for the track.</returns>
-    public ReadOnlySpan<byte> GetFreeSectorBitMap(int track)
-    {
-        if (track < 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(track), "Track number must be non-negative.");
-        }
-
-        int bitmapOffset = track * 4;
-        if (bitmapOffset + 4 > FreeSectorBitMaps.Length)
-        {
-            throw new ArgumentOutOfRangeException(nameof(track), "Track number exceeds available bitmap data.");
-        }
-
-        return FreeSectorBitMaps.AsSpan(bitmapOffset, 4);
-    }
+    public ReadOnlySpan<byte> GetFreeSectorBitMap(int track) =>
+        FreeSectorBitMaps.GetFreeSectorBitMap(track);
 
     /// <summary>
     /// Checks if a specific sector on a track is free.
@@ -208,20 +196,6 @@ public readonly struct VolumeTableOfContents
     /// <param name="track">The track number (0-based).</param>
     /// <param name="sector">The sector number (0-based).</param>
     /// <returns>True if the sector is free; otherwise, false.</returns>
-    public bool IsSectorFree(int track, int sector)
-    {
-        if (sector < 0 || sector >= SectorsPerTrack)
-        {
-            throw new ArgumentOutOfRangeException(nameof(sector), "Sector number is out of range.");
-        }
-
-        ReadOnlySpan<byte> bitmap = GetFreeSectorBitMap(track);
-        
-        // The bitmap is stored in big-endian format with sectors mapped to bits
-        // Sector 0 is the MSB of the first byte, etc.
-        int byteIndex = sector / 8;
-        int bitIndex = 7 - (sector % 8);
-        
-        return (bitmap[byteIndex] & (1 << bitIndex)) != 0;
-    }
+    public bool IsSectorFree(int track, int sector) =>
+        FreeSectorBitMaps.IsSectorFree(track, sector, SectorsPerTrack);
 }

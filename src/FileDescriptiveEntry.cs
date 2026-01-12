@@ -1,5 +1,5 @@
 using System.Buffers.Binary;
-
+using System.Diagnostics;
 using AppleIIDiskReader.Utilities;
 
 namespace AppleIIDiskReader;
@@ -38,7 +38,7 @@ public readonly struct FileDescriptiveEntry
     /// <summary>
     /// Offset $03-20: File name (30 characters).
     /// </summary>
-    public byte[] FileNameBytes { get; }
+    public ByteArray30 FileNameBytes { get; }
 
     /// <summary>
     /// Offset $21-22: Length of file in sectors (LO/HI format).
@@ -52,9 +52,9 @@ public readonly struct FileDescriptiveEntry
     /// <exception cref="ArgumentException">Thrown when data is not exactly the required size.</exception>
     public FileDescriptiveEntry(ReadOnlySpan<byte> data)
     {
-        if (data.Length < Size)
+        if (data.Length != Size)
         {
-            throw new ArgumentException($"Data must be at least {Size} bytes in length.", nameof(data));
+            throw new ArgumentException($"Data must be {Size} bytes in length.", nameof(data));
         }
 
         int offset = 0;
@@ -72,11 +72,14 @@ public readonly struct FileDescriptiveEntry
         offset += 1;
 
         // $03-20: File name (30 characters)
-        FileNameBytes = data.Slice(offset, 30).ToArray();
-        offset += 30;
+        FileNameBytes = new ByteArray30(data.Slice(offset, ByteArray30.Size));
+        offset += ByteArray30.Size;
 
         // $21-22: Length of file in sectors (LO/HI format)
         LengthInSectors = BinaryPrimitives.ReadUInt16LittleEndian(data.Slice(offset, 2));
+        offset += 2;
+
+        Debug.Assert(offset == data.Length, "Did not consume all entry bytes.");
     }
 
     /// <summary>
@@ -109,5 +112,5 @@ public readonly struct FileDescriptiveEntry
     /// Gets the file name as a string.
     /// Apple II file names are stored in high ASCII (with bit 7 set).
     /// </summary>
-    public string FileName => AppleIIEncoding.DecodeFileName(FileNameBytes, IsDeleted);
+    public string FileName => AppleIIEncoding.DecodeFileName(FileNameBytes.AsSpan(), IsDeleted);
 }

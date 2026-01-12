@@ -1,4 +1,6 @@
 using System.Buffers.Binary;
+using System.Diagnostics;
+using AppleIIDiskReader.Utilities;
 
 namespace AppleIIDiskReader;
 
@@ -47,7 +49,7 @@ public readonly struct TrackSectorList
     /// <summary>
     /// Offset $07-0B: Not used (5 bytes).
     /// </summary>
-    public byte[] Unused3 { get; }
+    public ByteArray5 Unused3 { get; }
 
     /// <summary>
     /// Offset $0C-FF: Track and sector pairs for data sectors.
@@ -91,16 +93,20 @@ public readonly struct TrackSectorList
         offset += 2;
 
         // $07-0B: Not used (5 bytes)
-        Unused3 = data.Slice(offset, 5).ToArray();
+        Unused3 = new ByteArray5(data.Slice(offset, 5));
         offset += 5;
 
         // $0C-FF: Track and sector pairs (122 pairs max)
-        DataSectors = new TrackSectorPair[MaxTrackSectorPairs];
+        var dataSectors = new TrackSectorPair[MaxTrackSectorPairs];
         for (int i = 0; i < MaxTrackSectorPairs; i++)
         {
-            DataSectors[i] = new TrackSectorPair(data[offset], data[offset + 1]);
-            offset += 2;
+            dataSectors[i] = new TrackSectorPair(data.Slice(offset, TrackSectorPair.Size));
+            offset += TrackSectorPair.Size;
         }
+
+        DataSectors = dataSectors;
+
+        Debug.Assert(offset == data.Length, "Did not consume all data bytes.");
     }
 
     /// <summary>
