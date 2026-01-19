@@ -35,6 +35,10 @@ public class FloppyDisk
     public FloppyDisk(Stream stream, int numberOfTracks, int numberOfSectors, int sectorSize)
     {
         ArgumentNullException.ThrowIfNull(stream);
+        if (!stream.CanSeek || !stream.CanRead)
+        {
+            throw new ArgumentException("Stream must be seekable and readable.", nameof(stream));
+        }
 
         _stream = stream;
         NumberOfTracks = numberOfTracks;

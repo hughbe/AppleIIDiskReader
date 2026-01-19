@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using AppleIIDiskReader.Utilities;
 
 namespace AppleIIDiskReader;
 

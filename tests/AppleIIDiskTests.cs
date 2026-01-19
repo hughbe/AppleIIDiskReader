@@ -401,39 +401,39 @@ public class AppleIIDiskTests
                 _ => ".dat"
             };
 
-            string outputPath = Path.Combine(outputDir, safeFileName + extension);
+            string outputFilePath = Path.Combine(outputDir, safeFileName + extension);
 
             switch (fileEntry.FileType)
             {
                 case AppleIIFileType.Text:
                     // For text files, convert from Apple II high ASCII.
                     var text = image.ReadTextFile(fileEntry);
-                    File.WriteAllText(outputPath, text.Value);
-                    Debug.WriteLine($"  Wrote text file ({text.Value.Length} chars) to {outputPath}");
+                    File.WriteAllText(outputFilePath, text.Value);
+                    Debug.WriteLine($"  Wrote text file ({text.Value.Length} chars) to {outputFilePath}");
                     break;
                 case AppleIIFileType.Binary:
                     // For binary files, extract the binary data.
                     var binaryData = image.ReadBinaryFile(fileEntry);
-                    File.WriteAllBytes(outputPath, binaryData.Data);
-                    Debug.WriteLine($"  Wrote binary file ({binaryData.Data.Length} bytes) to {outputPath}");
+                    File.WriteAllBytes(outputFilePath, binaryData.Data);
+                    Debug.WriteLine($"  Wrote binary file ({binaryData.Data.Length} bytes) to {outputFilePath}");
                     break;
                 case AppleIIFileType.ApplesoftBasic:
                     // For Applesoft BASIC files, extract the BASIC data.
                     var basicData = image.ReadApplesoftBasicFile(fileEntry);
-                    File.WriteAllBytes(outputPath, basicData.Data);
-                    Debug.WriteLine($"  Wrote Applesoft BASIC file ({basicData.Data.Length} bytes) to {outputPath}");
+                    File.WriteAllText(outputFilePath, basicData.ToString());
+                    Debug.WriteLine($"  Wrote Applesoft BASIC file ({basicData.Data.Length} bytes) to {outputFilePath}");
                     break;
                 case AppleIIFileType.IntegerBasic:
                     // For Integer BASIC files, extract the BASIC data.
                     var intBasicData = image.ReadIntegerBasicFile(fileEntry);
-                    File.WriteAllBytes(outputPath, intBasicData.Data);
-                    Debug.WriteLine($"  Wrote Integer BASIC file ({intBasicData.Data.Length} bytes) to {outputPath}");
+                    File.WriteAllText(outputFilePath, intBasicData.ToString());
+                    Debug.WriteLine($"  Wrote Integer BASIC file ({intBasicData.Data.Length} bytes) to {outputFilePath}");
                     break;
                 default:
                     // For other file types, just extract the raw data.
                     var data = image.ReadFileData(fileEntry);
-                    File.WriteAllBytes(outputPath, data);
-                    Debug.WriteLine($"  Wrote {data.Length} bytes to {outputPath}");
+                    File.WriteAllBytes(outputFilePath, data);
+                    Debug.WriteLine($"  Wrote {data.Length} bytes to {outputFilePath}");
                     break;
             }
         }

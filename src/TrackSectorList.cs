@@ -1,6 +1,5 @@
 using System.Buffers.Binary;
 using System.Diagnostics;
-using AppleIIDiskReader.Utilities;
 
 namespace AppleIIDiskReader;
 

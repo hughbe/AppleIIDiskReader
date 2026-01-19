@@ -52,4 +52,40 @@ public readonly struct ApplesoftBasicFile
         // Because each sector is 256 bytes, we may have some padding at the end.
         Debug.Assert(offset <= data.Length, "Did not consume all bytes.");
     }
+
+    /// <summary>
+    /// Gets the Applesoft BASIC lines in the file.
+    /// </summary>
+    /// <returns>A list of <see cref="ApplesoftBasicLine"/> structs representing the lines in the file.</returns>
+    public List<ApplesoftBasicLine> GetLines()
+    {
+        Span<byte> data = Data;
+        var lines = new List<ApplesoftBasicLine>();
+
+        int offset = 0;
+        while (offset + ApplesoftBasicLine.MinSize <= Data.Length)
+        {
+            if (data[offset] == 0x00 && data[offset + 1] == 0x00)
+            {
+                // Reached the end of the BASIC program.
+                break;
+            }
+
+            var line = new ApplesoftBasicLine(data[offset..], out int bytesRead);
+            lines.Add(line);
+            offset += bytesRead;
+        }
+
+        return lines;
+    }
+
+    /// <summary>
+    /// Returns a string that represents the Applesoft BASIC file.
+    /// </summary>
+    /// <returns>A string that represents the Applesoft BASIC file.</returns>
+    public override string ToString()
+    {
+        var lines = GetLines();
+        return string.Join(Environment.NewLine, lines.Select(line => line.ToString()));
+    }
 }

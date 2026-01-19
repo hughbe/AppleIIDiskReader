@@ -249,6 +249,23 @@ public class AppleIIDisk : FloppyDisk
     }
 
     /// <summary>
+    /// Reads a Relocatable binary file from the disk.
+    /// </summary>
+    /// <param name="fileEntry">The file descriptive entry.</param>
+    /// <returns>>The <see cref="RelocatableBinaryFile"/> object representing the Relocatable binary file.</returns>
+    /// <exception cref="ArgumentException">>Thrown when the specified file entry is not a Relocatable file.</exception>
+    public RelocatableBinaryFile ReadRelocatableFile(FileDescriptiveEntry fileEntry)
+    {
+        if (fileEntry.FileType != AppleIIFileType.Relocatable)
+        {
+            throw new ArgumentException("The specified file entry is not a Relocatable file.", nameof(fileEntry));
+        }
+
+        byte[] data = ReadFileData(fileEntry);
+        return new RelocatableBinaryFile(data);
+    }
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="AppleIIDisk"/> class.
     /// </summary>
     /// <param name="stream">The stream representing the Apple II disk data.</param>

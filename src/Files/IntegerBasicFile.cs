@@ -52,4 +52,41 @@ public readonly struct IntegerBasicFile
         // Because each sector is 256 bytes, we may have some padding at the end.
         Debug.Assert(offset <= data.Length, "Did not consume all bytes.");
     }
+
+    /// <summary>
+    /// Parses the Integer BASIC file data into individual lines.
+    /// </summary>
+    /// <returns>A list of <see cref="IntegerBasicLine"/> objects representing the lines of the Integer BASIC file.</returns>
+    public List<IntegerBasicLine> GetLines()
+    {
+        Span<byte> data = Data;
+        // Each line starts with a 1-byte length and a 2-byte line number.
+        var lines = new List<IntegerBasicLine>();
+        int offset = 0;
+        while (offset < data.Length)
+        {
+            // A zero-length byte indicates end of file.
+            var length = data[offset];
+            if (length == 0)
+            {
+                break;
+            }
+
+            var line = new IntegerBasicLine(data.Slice(offset, length));
+            lines.Add(line);
+            offset += line.Length;
+        }
+
+        return lines;
+    }
+
+    /// <summary>
+    /// Returns a string representation of the Integer BASIC file.
+    /// </summary>
+    /// <returns>>A string representing the Integer BASIC file.</returns>
+    public override string ToString()
+    {
+        var lines = GetLines();
+        return string.Join(Environment.NewLine, lines.Select(line => line.ToString()));
+    }
 }
