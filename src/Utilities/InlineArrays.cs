@@ -33,7 +33,7 @@ public struct ByteArray5
     /// Gets a span over the elements of the array.
     /// </summary>   
     public Span<byte> AsSpan() =>
-        MemoryMarshal.CreateSpan(ref _element0, 5);
+        MemoryMarshal.CreateSpan(ref _element0, Size);
 }
 
 /// <summary>

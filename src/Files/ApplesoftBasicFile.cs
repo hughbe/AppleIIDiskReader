@@ -1,6 +1,5 @@
 using System.Buffers.Binary;
 using System.Diagnostics;
-using Microsoft.VisualBasic;
 
 namespace AppleIIDiskReader.Files;
 
@@ -86,6 +85,6 @@ public readonly struct ApplesoftBasicFile
     public override string ToString()
     {
         var lines = GetLines();
-        return string.Join(Environment.NewLine, lines.Select(line => line.ToString()));
+        return string.Join(Environment.NewLine, lines);
     }
 }

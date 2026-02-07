@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using AppleIIDiskReader.Utilities;
 
 namespace AppleIIDiskReader;
 
@@ -57,6 +58,8 @@ public readonly struct CatalogEntry
             throw new ArgumentException($"Data must be {Size} bytes in length.", nameof(data));
         }
 
+        // Structure documented in http://justsolve.archiveteam.org/wiki/Apple_DOS_file_system
+        // and https://ciderpress2.com/formatdoc/DOS-notes.html
         int offset = 0;
 
         // $00: Not used
@@ -72,8 +75,8 @@ public readonly struct CatalogEntry
         offset += 1;
 
         // $03-0A: Not used (8 bytes)
-        Unused2 = new ByteArray8(data.Slice(offset, 8));
-        offset += 8;
+        Unused2 = new ByteArray8(data.Slice(offset, ByteArray8.Size));
+        offset += ByteArray8.Size;
 
         // $0B-FF: Seven file descriptive entries
         // Each entry is 35 bytes ($23)

@@ -1,7 +1,5 @@
 using System.Buffers.Binary;
 using System.Diagnostics;
-using System.Text;
-using Microsoft.VisualBasic;
 
 namespace AppleIIDiskReader.Files;
 
@@ -209,10 +207,18 @@ public readonly struct ApplesoftBasicLine
     {
         const byte RemToken = 0xB2;
 
-        Span<byte> content = Content;
-        var sb = new StringBuilder();
-        sb.Append(LineNumber);
-        sb.Append(' ');
+        ReadOnlySpan<byte> content = Content;
+
+        // Max size: line number (5 digits) + space + each byte expands to at most space + token (8 chars)
+        int maxLength = 6 + content.Length * 8;
+        Span<char> buffer = maxLength <= 512
+            ? stackalloc char[maxLength]
+            : new char[maxLength];
+        int pos = 0;
+
+        LineNumber.TryFormat(buffer, out int written);
+        pos += written;
+        buffer[pos++] = ' ';
 
         bool inRem = false;
         bool inQuote = false;
@@ -241,10 +247,11 @@ public readonly struct ApplesoftBasicLine
 
                     if (needSpace)
                     {
-                        sb.Append(' ');
+                        buffer[pos++] = ' ';
                     }
 
-                    sb.Append(token);
+                    token.AsSpan().CopyTo(buffer[pos..]);
+                    pos += token.Length;
 
                     if (b == RemToken)
                     {
@@ -264,7 +271,7 @@ public readonly struct ApplesoftBasicLine
                 bool needSpace = !inRem && !inQuote && lastToken && leadingSpace && (char.IsLetterOrDigit(c) || c == '"');
                 if (needSpace)
                 {
-                    sb.Append(' ');
+                    buffer[pos++] = ' ';
                 }
 
                 if (c == '"')
@@ -272,12 +279,12 @@ public readonly struct ApplesoftBasicLine
                     inQuote = !inQuote;
                 }
 
-                sb.Append(c);
+                buffer[pos++] = c;
                 lastAlphanumeric = char.IsLetterOrDigit(c);
                 lastToken = false;
             }
         }
 
-        return sb.ToString();
+        return new string(buffer[..pos]);
     }
 }

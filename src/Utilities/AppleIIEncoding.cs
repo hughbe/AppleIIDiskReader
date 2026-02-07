@@ -1,5 +1,3 @@
-using System.Text;
-
 namespace AppleIIDiskReader.Utilities;
 
 /// <summary>
@@ -23,7 +21,26 @@ public static class AppleIIEncoding
     /// <returns>The decoded string.</returns>
     public static string GetString(ReadOnlySpan<byte> data)
     {
-        var sb = new StringBuilder(data.Length);
+        // Worst case: every byte is '\r' which becomes Environment.NewLine (could be 2 chars on Windows).
+        var maxLength = data.Length * Environment.NewLine.Length;
+        Span<char> buffer = maxLength <= 256
+            ? stackalloc char[maxLength]
+            : new char[maxLength];
+
+        var written = WriteString(data, buffer);
+        return new string(buffer[..written]);
+    }
+
+    /// <summary>
+    /// Converts Apple II high ASCII bytes into a span of characters.
+    /// Stops at null terminator or end of data.
+    /// </summary>
+    /// <param name="data">The Apple II encoded data.</param>
+    /// <param name="destination">The destination span to write decoded characters into.</param>
+    /// <returns>The number of characters written to <paramref name="destination"/>.</returns>
+    public static int WriteString(ReadOnlySpan<byte> data, Span<char> destination)
+    {
+        var pos = 0;
 
         foreach (byte b in data)
         {
@@ -34,25 +51,22 @@ public static class AppleIIEncoding
             }
 
             // Clear high bit to convert from Apple II high ASCII to standard ASCII
-            char c = ToChar(b);
+            var c = ToChar(b);
 
             // Convert carriage return (0x0D) to newline for modern systems
             if (c == '\r')
             {
-                sb.AppendLine();
+                Environment.NewLine.AsSpan().CopyTo(destination[pos..]);
+                pos += Environment.NewLine.Length;
             }
-            else if (c >= 0x20 && c < 0x7F) // Printable ASCII
+            else if ((c >= 0x20 && c < 0x7F) || c == '\t') // Printable ASCII or tab
             {
-                sb.Append(c);
-            }
-            else if (c == '\t') // Tab
-            {
-                sb.Append(c);
+                destination[pos++] = c;
             }
             // Skip other control characters
         }
 
-        return sb.ToString();
+        return pos;
     }
 
     /// <summary>
@@ -65,8 +79,9 @@ public static class AppleIIEncoding
     public static string DecodeFileName(ReadOnlySpan<byte> fileNameBytes, bool isDeleted = false)
     {
         // For deleted files, the last byte contains the original track number
-        int length = isDeleted ? Math.Min(fileNameBytes.Length, 29) : fileNameBytes.Length;
-        var sb = new StringBuilder(length);
+        var length = isDeleted ? Math.Min(fileNameBytes.Length, 29) : fileNameBytes.Length;
+        Span<char> buffer = stackalloc char[length];
+        int pos = 0;
 
         for (int i = 0; i < length; i++)
         {
@@ -77,7 +92,7 @@ public static class AppleIIEncoding
             if (c == ' ' && i > 0)
             {
                 // Check if remaining characters are all spaces
-                bool allSpaces = true;
+                var allSpaces = true;
                 for (int j = i; j < length; j++)
                 {
                     if (ToChar(fileNameBytes[j]) != ' ')
@@ -93,9 +108,9 @@ public static class AppleIIEncoding
                 }
             }
 
-            sb.Append(c);
+            buffer[pos++] = c;
         }
 
-        return sb.ToString().TrimEnd();
+        return new string(buffer[..pos].TrimEnd(' '));
     }
 }

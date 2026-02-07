@@ -57,6 +57,8 @@ public readonly struct FileDescriptiveEntry
             throw new ArgumentException($"Data must be {Size} bytes in length.", nameof(data));
         }
 
+        // Structure documented in http://justsolve.archiveteam.org/wiki/Apple_DOS_file_system
+        // and https://ciderpress2.com/formatdoc/DOS-notes.html
         int offset = 0;
 
         // $00: Track of first track/sector list sector

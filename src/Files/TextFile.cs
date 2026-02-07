@@ -15,8 +15,8 @@ public readonly struct TextFile
     /// <summary>
     /// Initializes a new instance of the <see cref="TextFile"/> struct.
     /// </summary>
-    /// <param name="data">The byte array containing the text file data.</param>
-    public TextFile(byte[] data)
+    /// <param name="data">The data containing the text file content.</param>
+    public TextFile(ReadOnlySpan<byte> data)
     {
         Value = AppleIIEncoding.GetString(data);
     }

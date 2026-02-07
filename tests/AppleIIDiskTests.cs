@@ -6,6 +6,8 @@ public class AppleIIDiskTests
 {
     public static TheoryData<string> DiskImages => new()
     {
+        "ftp.apple.asimov.net/images/apple1/apple1.dsk",
+        "ftp.apple.asimov.net/images/apple1/APPLE 1 AGE DIFFERENCE BY MATTEO TREVISAN.dsk.dsk",
         "appleIIDos.dsk",
         "appleIIDosSide2.dsk",
         "bankSt3-10Side2.dsk",

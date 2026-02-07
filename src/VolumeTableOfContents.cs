@@ -111,6 +111,7 @@ public readonly struct VolumeTableOfContents
         }
 
         // Structure documented in http://justsolve.archiveteam.org/wiki/Apple_DOS_file_system
+        // and https://ciderpress2.com/formatdoc/DOS-notes.html
         int offset = 0;
 
         // $00: not used

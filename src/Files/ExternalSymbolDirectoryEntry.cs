@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Text;
 
 namespace AppleIIDiskReader.Files;
 
@@ -57,15 +56,19 @@ public readonly struct ExternalSymbolDirectoryEntry
         int offset = 0;
 
         // Read the symbol name. All bytes have their $80 bit set except the last one.
-        var nameBuilder = new StringBuilder();
+        // Symbol names are short (typically 1-8 chars), so stackalloc is ideal.
+        var nameBufferLength = data.Length - offset;
+        Span<char> nameBuffer = nameBufferLength <= 512
+            ? stackalloc char[nameBufferLength]
+            : new char[nameBufferLength];
+        int nameLength = 0;
         while (offset < data.Length)
         {
             byte b = data[offset];
             offset++;
 
             // Extract the 7-bit ASCII character
-            char c = (char)(b & 0x7F);
-            nameBuilder.Append(c);
+            nameBuffer[nameLength++] = (char)(b & 0x7F);
 
             // If the high bit is clear, this is the last character of the name
             if ((b & 0x80) == 0)
@@ -74,7 +77,7 @@ public readonly struct ExternalSymbolDirectoryEntry
             }
         }
 
-        SymbolName = nameBuilder.ToString();
+        SymbolName = new string(nameBuffer[..nameLength]);
 
         if (offset + 3 > data.Length)
         {

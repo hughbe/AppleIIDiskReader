@@ -1,6 +1,5 @@
 using System.Buffers.Binary;
 using System.Diagnostics;
-using System.Text;
 
 namespace AppleIIDiskReader.Files;
 
@@ -128,11 +127,18 @@ public readonly struct IntegerBasicLine
     /// <returns>A string representing the Integer BASIC line.</returns>
     public override string ToString()
     {
-        Span<byte> content = Content;
+        ReadOnlySpan<byte> content = Content;
 
-        var sb = new StringBuilder();
-        sb.Append(LineNumber);
-        sb.Append(' ');
+        // Max size: line number (5 digits) + space + each byte expands to at most space + token (8 chars)
+        int maxLength = 6 + content.Length * 8;
+        Span<char> buffer = maxLength <= 512
+            ? stackalloc char[maxLength]
+            : new char[maxLength];
+        int pos = 0;
+
+        LineNumber.TryFormat(buffer, out int written);
+        pos += written;
+        buffer[pos++] = ' ';
 
         bool inRem = false;
         bool inQuote = false;
@@ -163,10 +169,11 @@ public readonly struct IntegerBasicLine
                     bool needSpace = lastToken && leadingSpace;
                     if (needSpace)
                     {
-                        sb.Append(' ');
+                        buffer[pos++] = ' ';
                     }
 
-                    sb.Append(integer);
+                    integer.TryFormat(buffer[pos..], out int intWritten);
+                    pos += intWritten;
                     offset += 2;
                     leadingSpace = true;
                     lastToken = false;
@@ -179,18 +186,18 @@ public readonly struct IntegerBasicLine
                     bool needSpace = !inRem && !inQuote && lastToken && leadingSpace && char.IsLetterOrDigit(c);
                     if (needSpace)
                     {
-                        sb.Append(' ');
+                        buffer[pos++] = ' ';
                     }
 
                     if (c >= 0x20)
                     {
-                        sb.Append(c);
+                        buffer[pos++] = c;
                     }
                     else
                     {
                         // Control character - display as ^X
-                        sb.Append('^');
-                        sb.Append((char)(c + 0x40));
+                        buffer[pos++] = '^';
+                        buffer[pos++] = (char)(c + 0x40);
                     }
 
                     lastAlphanumeric = char.IsLetterOrDigit(c);
@@ -221,10 +228,11 @@ public readonly struct IntegerBasicLine
 
                 if (needSpace)
                 {
-                    sb.Append(' ');
+                    buffer[pos++] = ' ';
                 }
 
-                sb.Append(token);
+                token.AsSpan().CopyTo(buffer[pos..]);
+                pos += token.Length;
 
                 lastAlphanumeric = false;
                 leadingSpace = char.IsLetterOrDigit(lastChar) || lastChar == ')' || lastChar == '"';
@@ -232,6 +240,6 @@ public readonly struct IntegerBasicLine
             }
         }
 
-        return sb.ToString();
+        return new string(buffer[..pos]);
     }
 }

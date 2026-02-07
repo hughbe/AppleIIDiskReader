@@ -35,9 +35,16 @@ public struct VtocBitMap
     /// <summary>
     /// Gets a span over the bitmap bytes.
     /// </summary>
-    /// <returns></returns>
+    /// <returns>>A span containing the bitmap bytes.</returns>
     public readonly Span<byte> AsSpan() =>
-        MemoryMarshal.CreateSpan(ref Unsafe.AsRef(in element0), 200);
+        MemoryMarshal.CreateSpan(ref Unsafe.AsRef(in element0), Size);
+
+    /// <summary>
+    /// Gets a read-only span over the bitmap bytes.
+    /// </summary>
+    /// <returns>A read-only span containing the bitmap bytes.</returns>
+    public readonly ReadOnlySpan<byte> AsReadOnlySpan() =>
+        MemoryMarshal.CreateReadOnlySpan(ref Unsafe.AsRef(in element0), Size);
 
     /// <summary>
     /// Gets the free sector bitmap for a specific track.
@@ -57,7 +64,7 @@ public struct VtocBitMap
             throw new ArgumentOutOfRangeException(nameof(track), "Track number exceeds available bitmap data.");
         }
 
-        return AsSpan().Slice(bitmapOffset, 4);
+        return AsReadOnlySpan().Slice(bitmapOffset, 4);
     }
 
     /// <summary>
@@ -85,7 +92,7 @@ public struct VtocBitMap
             throw new ArgumentOutOfRangeException(nameof(track), "Track number exceeds available bitmap data.");
         }
 
-        ReadOnlySpan<byte> bitmap = AsSpan().Slice(bitmapOffset, 4);
+        ReadOnlySpan<byte> bitmap = AsReadOnlySpan().Slice(bitmapOffset, 4);
 
         // The bitmap is stored in big-endian format with sectors mapped to bits
         // Sector 0 is the MSB of the first byte, etc.

@@ -72,7 +72,7 @@ public class FloppyDisk
             throw new ArgumentException("Buffer is too small to hold sector data.", nameof(buffer));
         }
 
-        long offset = (track * NumberOfSectors + sector) * SectorSize;
+        var offset = (track * NumberOfSectors + sector) * SectorSize;
         _stream.Seek(offset, SeekOrigin.Begin);
         return _stream.Read(buffer);
     }

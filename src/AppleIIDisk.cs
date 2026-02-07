@@ -25,8 +25,8 @@ public class AppleIIDisk : FloppyDisk
     /// <returns>>An enumerable of <see cref="CatalogEntry"/> objects.</returns>
     public IEnumerable<CatalogEntry> EnumerateCatalogEntries()
     {
-        byte track = VolumeTableOfContents.FirstCatalogTrack;
-        byte sector = VolumeTableOfContents.FirstCatalogSector;
+        var track = VolumeTableOfContents.FirstCatalogTrack;
+        var sector = VolumeTableOfContents.FirstCatalogSector;
 
         while (track != 0)
         {
@@ -67,7 +67,7 @@ public class AppleIIDisk : FloppyDisk
     /// <returns>>The <see cref="CatalogEntry"/> at the specified location.</returns>
     public CatalogEntry GetCatalogEntry(byte track, byte sector)
     {
-        Span<byte> buffer = stackalloc byte[256];
+        Span<byte> buffer = stackalloc byte[SectorSize];
         ReadSector(track, sector, buffer);
         return new CatalogEntry(buffer);
     }
@@ -80,7 +80,7 @@ public class AppleIIDisk : FloppyDisk
     /// <returns>The <see cref="TrackSectorList"/> at the specified location.</returns>
     public TrackSectorList GetTrackSectorList(byte track, byte sector)
     {
-        Span<byte> buffer = stackalloc byte[256];
+        Span<byte> buffer = stackalloc byte[SectorSize];
         ReadSector(track, sector, buffer);
         return new TrackSectorList(buffer);
     }
@@ -97,8 +97,8 @@ public class AppleIIDisk : FloppyDisk
             yield break;
         }
 
-        byte track = fileEntry.FirstTrackSectorListTrack;
-        byte sector = fileEntry.FirstTrackSectorListSector;
+        var track = fileEntry.FirstTrackSectorListTrack;
+        var sector = fileEntry.FirstTrackSectorListSector;
 
         while (track != 0)
         {
@@ -127,12 +127,68 @@ public class AppleIIDisk : FloppyDisk
             throw new ArgumentException("Cannot read data from a deleted file entry.", nameof(fileEntry));
         }
 
-        // Calculate total size based on sectors
-        int totalBytes = fileEntry.LengthInSectors * SectorSize;
-        byte[] data = new byte[totalBytes];
+        var totalBytes = fileEntry.LengthInSectors * SectorSize;
+        var result = new byte[totalBytes];
         int dataOffset = 0;
 
-        Span<byte> sectorBuffer = stackalloc byte[256];
+        Span<byte> sectorBuffer = stackalloc byte[SectorSize];
+
+        foreach (var tsList in EnumerateTrackSectorLists(fileEntry))
+        {
+            foreach (var pair in tsList.DataSectors)
+            {
+                if (pair.IsEmpty)
+                {
+                    if (dataOffset >= totalBytes)
+                    {
+                        break;
+                    }
+
+                    // Sparse hole - result array is already zeroed
+                    dataOffset += SectorSize;
+                    continue;
+                }
+
+                if (dataOffset >= totalBytes)
+                {
+                    break;
+                }
+
+                ReadSector(pair.Track, pair.Sector, sectorBuffer);
+
+                var bytesToCopy = Math.Min(SectorSize, totalBytes - dataOffset);
+                sectorBuffer[..bytesToCopy].CopyTo(result.AsSpan(dataOffset));
+                dataOffset += bytesToCopy;
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Reads the raw data of a file from the disk into a stream.
+    /// </summary>
+    /// <param name="fileEntry">The file descriptive entry.</param>
+    /// <param name="destination">The destination stream to write the file data to.</param>
+    public int ReadFileData(FileDescriptiveEntry fileEntry, Stream destination)
+    {
+        ArgumentNullException.ThrowIfNull(destination);
+
+        if (fileEntry.IsUnused)
+        {
+            throw new ArgumentException("Cannot read data from an unused file entry.", nameof(fileEntry));
+        }
+
+        if (fileEntry.IsDeleted)
+        {
+            throw new ArgumentException("Cannot read data from a deleted file entry.", nameof(fileEntry));
+        }
+
+        // Calculate total size based on sectors
+        var totalBytes = fileEntry.LengthInSectors * SectorSize;
+        int dataOffset = 0;
+
+        Span<byte> sectorBuffer = stackalloc byte[SectorSize];
 
         foreach (var tsList in EnumerateTrackSectorLists(fileEntry))
         {
@@ -147,7 +203,9 @@ public class AppleIIDisk : FloppyDisk
                         break;
                     }
 
-                    // Sparse hole - fill with zeros (already initialized to zero)
+                    // Sparse hole - fill with zeros (reuse stackalloc'd buffer)
+                    sectorBuffer.Clear();
+                    destination.Write(sectorBuffer);
                     dataOffset += SectorSize;
                     continue;
                 }
@@ -159,26 +217,13 @@ public class AppleIIDisk : FloppyDisk
 
                 ReadSector(pair.Track, pair.Sector, sectorBuffer);
 
-                int bytesToCopy = Math.Min(SectorSize, totalBytes - dataOffset);
-                sectorBuffer.Slice(0, bytesToCopy).CopyTo(data.AsSpan(dataOffset));
+                var bytesToCopy = Math.Min(SectorSize, totalBytes - dataOffset);
+                destination.Write(sectorBuffer[..bytesToCopy]);
                 dataOffset += bytesToCopy;
             }
         }
 
-        return data;
-    }
-
-    /// <summary>
-    /// Reads the raw data of a file from the disk into a stream.
-    /// </summary>
-    /// <param name="fileEntry">The file descriptive entry.</param>
-    /// <param name="destination">The destination stream to write the file data to.</param>
-    public void ReadFileData(FileDescriptiveEntry fileEntry, Stream destination)
-    {
-        ArgumentNullException.ThrowIfNull(destination);
-
-        byte[] data = ReadFileData(fileEntry);
-        destination.Write(data);
+        return dataOffset;
     }
 
     /// <summary>
@@ -194,7 +239,7 @@ public class AppleIIDisk : FloppyDisk
             throw new ArgumentException("The specified file entry is not a text file.", nameof(fileEntry));
         }
 
-        byte[] data = ReadFileData(fileEntry);
+        var data = ReadFileData(fileEntry);
         return new TextFile(data);
     }
 
@@ -210,7 +255,7 @@ public class AppleIIDisk : FloppyDisk
             throw new ArgumentException("The specified file entry is not a binary file.", nameof(fileEntry));
         }
 
-        byte[] data = ReadFileData(fileEntry);
+        var data = ReadFileData(fileEntry);
         return new BinaryFile(data);
     }
 
@@ -227,7 +272,7 @@ public class AppleIIDisk : FloppyDisk
             throw new ArgumentException("The specified file entry is not an Applesoft BASIC file.", nameof(fileEntry));
         }
 
-        byte[] data = ReadFileData(fileEntry);
+        var data = ReadFileData(fileEntry);
         return new ApplesoftBasicFile(data);
     }
 
@@ -244,7 +289,7 @@ public class AppleIIDisk : FloppyDisk
             throw new ArgumentException("The specified file entry is not an Integer BASIC file.", nameof(fileEntry));
         }
 
-        byte[] data = ReadFileData(fileEntry);
+        var data = ReadFileData(fileEntry);
         return new IntegerBasicFile(data);
     }
 
@@ -261,7 +306,7 @@ public class AppleIIDisk : FloppyDisk
             throw new ArgumentException("The specified file entry is not a Relocatable file.", nameof(fileEntry));
         }
 
-        byte[] data = ReadFileData(fileEntry);
+        var data = ReadFileData(fileEntry);
         return new RelocatableBinaryFile(data);
     }
 
@@ -273,7 +318,7 @@ public class AppleIIDisk : FloppyDisk
         : base(stream, numberOfTracks: 35, numberOfSectors: 16, sectorSize: 256)
     {
         // Read the Volume Table of Contents (VTOC) from track 17, sector 0
-        Span<byte> buffer = stackalloc byte[256];
+        Span<byte> buffer = stackalloc byte[SectorSize];
         ReadSector(0x11, 0x00, buffer);
         VolumeTableOfContents = new VolumeTableOfContents(buffer);
     }

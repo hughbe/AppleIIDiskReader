@@ -1,5 +1,5 @@
 using System.Buffers.Binary;
-using System.Diagnostics.Contracts;
+using System.Diagnostics;
 
 namespace AppleIIDiskReader.Files;
 
@@ -123,6 +123,6 @@ public readonly struct RelocatableBinaryFile
 
         ExternalSymbolDirectory = esdEntries.ToArray();
 
-        Contract.Assert(offset <= data.Length, "Did not consume all bytes.");
+        Debug.Assert(offset <= data.Length, "Did not consume all bytes.");
     }
 }
