@@ -87,7 +87,7 @@ public struct VtocBitMap
         }
 
         int bitmapOffset = track * 4;
-        if (bitmapOffset + 4 > 200)
+        if (bitmapOffset + 4 > Size)
         {
             throw new ArgumentOutOfRangeException(nameof(track), "Track number exceeds available bitmap data.");
         }

@@ -40,6 +40,10 @@ public class FloppyDisk
             throw new ArgumentException("Stream must be seekable and readable.", nameof(stream));
         }
 
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(numberOfTracks);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(numberOfSectors);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sectorSize);
+
         _stream = stream;
         NumberOfTracks = numberOfTracks;
         NumberOfSectors = numberOfSectors;
