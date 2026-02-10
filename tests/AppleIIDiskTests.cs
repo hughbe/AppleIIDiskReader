@@ -619,6 +619,46 @@ public class AppleIIDiskTests
     }
 
     [Fact]
+    public void AppleII640_HasExpectedVolumeTableOfContents()
+    {
+        using var stream = File.OpenRead(Path.Combine("Samples", "github.com", "davidgiven", "fluxengine", "appleii640.img"));
+        var disk = new AppleIIDisk(stream);
+
+        Assert.Equal(254, disk.VolumeTableOfContents.DiskVolumeNumber);
+        Assert.Equal(17, disk.VolumeTableOfContents.FirstCatalogTrack);
+        Assert.Equal(15, disk.VolumeTableOfContents.FirstCatalogSector);
+        Assert.Equal(80, disk.VolumeTableOfContents.TracksPerDiskette);
+        Assert.Equal(16, disk.VolumeTableOfContents.SectorsPerTrack);
+        Assert.Equal(256, disk.VolumeTableOfContents.BytesPerSector);
+    }
+
+    [Fact]
+    public void AppleII640_HasExpectedFileCount()
+    {
+        using var stream = File.OpenRead(Path.Combine("Samples", "github.com", "davidgiven", "fluxengine", "appleii640.img"));
+        var disk = new AppleIIDisk(stream);
+
+        var files = disk.EnumerateFileEntries().ToList();
+        Assert.Equal(49, files.Count);
+    }
+
+    [Fact]
+    public void AppleII640_CanReadFilesOnHighTracks()
+    {
+        using var stream = File.OpenRead(Path.Combine("Samples", "github.com", "davidgiven", "fluxengine", "appleii640.img"));
+        var disk = new AppleIIDisk(stream);
+
+        // GOLD RUSH is on track 73 - beyond the standard 35 tracks
+        var goldRush = disk.EnumerateFileEntries().Single(f => f.FileName == "GOLD RUSH");
+        Assert.Equal(AppleIIFileType.Binary, goldRush.FileType);
+        Assert.True(goldRush.IsLocked);
+
+        // Verify we can actually read the file data
+        var data = disk.ReadFileData(goldRush);
+        Assert.NotEmpty(data);
+    }
+
+    [Fact]
     public void Ctor_NullStream_ThrowsArgumentNullException()
     {
         Assert.Throws<ArgumentNullException>("stream", () => new AppleIIDisk(null!));

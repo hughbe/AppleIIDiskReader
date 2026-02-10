@@ -10,7 +10,7 @@ public class AppleIIDisk : FloppyDisk
 {
     private const int AppleIIDiskSectorSize = 256;
 
-    private const int AppleIIDiskTracks = 35;
+    private const int MinimumTracks = 35;
 
     /// <summary>
     /// The Volume Table of Contents (VTOC) for the disk.
@@ -319,12 +319,25 @@ public class AppleIIDisk : FloppyDisk
     /// </summary>
     /// <param name="stream">The stream representing the Apple II disk data.</param>
     public AppleIIDisk(Stream stream)
-        : base(stream, numberOfTracks: AppleIIDiskTracks, numberOfSectors: DetectSectorsPerTrack(stream), sectorSize: AppleIIDiskSectorSize)
+        : base(stream, numberOfTracks: DetectNumberOfTracks(stream), numberOfSectors: DetectSectorsPerTrack(stream), sectorSize: AppleIIDiskSectorSize)
     {
         // Read the Volume Table of Contents (VTOC) from track 17, sector 0
         Span<byte> buffer = stackalloc byte[AppleIIDiskSectorSize];
         ReadSector(0x11, 0x00, buffer);
         VolumeTableOfContents = new VolumeTableOfContents(buffer);
+    }
+
+    /// <summary>
+    /// Detects the number of tracks from the stream length and sectors per track.
+    /// Returns at least <see cref="MinimumTracks"/> to handle partial disk images.
+    /// </summary>
+    private static int DetectNumberOfTracks(Stream stream)
+    {
+        ArgumentNullException.ThrowIfNull(stream);
+
+        int sectorsPerTrack = DetectSectorsPerTrack(stream);
+        int tracks = (int)(stream.Length / (sectorsPerTrack * AppleIIDiskSectorSize));
+        return Math.Max(tracks, MinimumTracks);
     }
 
     /// <summary>
@@ -338,7 +351,10 @@ public class AppleIIDisk : FloppyDisk
 
         // Use file size to determine where the VTOC sector lives.
         // The VTOC is at track 17, sector 0, so its byte offset depends on sectors per track.
-        int likelySectors = stream.Length == AppleIIDiskTracks * 13 * AppleIIDiskSectorSize ? 13 : 16;
+        // If divisible by 16*256, assume 16 spt; else if divisible by 13*256, assume 13.
+        int likelySectors = stream.Length % (16 * AppleIIDiskSectorSize) == 0 ? 16
+            : stream.Length % (13 * AppleIIDiskSectorSize) == 0 ? 13
+            : 16;
         long vtocOffset = 17L * likelySectors * AppleIIDiskSectorSize;
         const int sectorsPerTrackField = 0x35;
 
