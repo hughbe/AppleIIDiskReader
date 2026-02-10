@@ -8,6 +8,10 @@ namespace AppleIIDiskReader;
 /// </summary>
 public class AppleIIDisk : FloppyDisk
 {
+    private const int AppleIIDiskSectorSize = 256;
+
+    private const int AppleIIDiskTracks = 35;
+
     /// <summary>
     /// The Volume Table of Contents (VTOC) for the disk.
     /// </summary>
@@ -315,11 +319,39 @@ public class AppleIIDisk : FloppyDisk
     /// </summary>
     /// <param name="stream">The stream representing the Apple II disk data.</param>
     public AppleIIDisk(Stream stream)
-        : base(stream, numberOfTracks: 35, numberOfSectors: 16, sectorSize: 256)
+        : base(stream, numberOfTracks: AppleIIDiskTracks, numberOfSectors: DetectSectorsPerTrack(stream), sectorSize: AppleIIDiskSectorSize)
     {
         // Read the Volume Table of Contents (VTOC) from track 17, sector 0
-        Span<byte> buffer = stackalloc byte[SectorSize];
+        Span<byte> buffer = stackalloc byte[AppleIIDiskSectorSize];
         ReadSector(0x11, 0x00, buffer);
         VolumeTableOfContents = new VolumeTableOfContents(buffer);
+    }
+
+    /// <summary>
+    /// Reads the sectors per track value from the VTOC sector in the stream.
+    /// Uses the stream length to locate the VTOC (track 17, sector 0), then
+    /// reads the actual SectorsPerTrack field at offset $35.
+    /// </summary>
+    private static int DetectSectorsPerTrack(Stream stream)
+    {
+        ArgumentNullException.ThrowIfNull(stream);
+
+        // Use file size to determine where the VTOC sector lives.
+        // The VTOC is at track 17, sector 0, so its byte offset depends on sectors per track.
+        int likelySectors = stream.Length == AppleIIDiskTracks * 13 * AppleIIDiskSectorSize ? 13 : 16;
+        long vtocOffset = 17L * likelySectors * AppleIIDiskSectorSize;
+        const int sectorsPerTrackField = 0x35;
+
+        // If the image is too small to contain the VTOC, fall back to the size-based estimate.
+        if (stream.Length < vtocOffset + sectorsPerTrackField + 1)
+            return likelySectors;
+
+        stream.Seek(vtocOffset + sectorsPerTrackField, SeekOrigin.Begin);
+        int value = stream.ReadByte();
+
+        if (value is 13 or 16)
+            return value;
+
+        return likelySectors;
     }
 }
